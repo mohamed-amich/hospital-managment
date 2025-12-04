@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Users, Calendar, FileText, Activity, Plus, Edit, Trash2, Search } from 'lucide-react';
+import Swal from 'sweetalert2';
 import './index.css'
 
 const API_BASE_URL = 'http://localhost:8080/api';
@@ -68,17 +69,21 @@ const HospitalManagement = () => {
   const handleSubmit = async () => {
     const isEditing = !!editingItem;
     let url, method, body;
-    let refreshData = () => {};
+    let refreshData = () => { };
 
     if (modalType === 'patient') {
       url = `${API_BASE_URL}/patients${isEditing ? '/' + editingItem.id : ''}`;
       method = isEditing ? 'PUT' : 'POST';
       body = JSON.stringify(formData);
       refreshData = () => fetchData('patients', setPatients);
-      
+
       // Patient phone validation from Patient.java: "^[0-9]{10}$" (10 digits)
       if (formData.telephone && formData.telephone.length !== 10) {
-        alert("Le numéro de téléphone du patient doit contenir 10 chiffres.");
+        Swal.fire({
+          icon: 'error',
+          title: 'Erreur',
+          text: "Le numéro de téléphone du patient doit contenir 10 chiffres."
+        });
         return;
       }
 
@@ -87,17 +92,21 @@ const HospitalManagement = () => {
       method = isEditing ? 'PUT' : 'POST';
       body = JSON.stringify(formData);
       refreshData = () => fetchData('doctors', setDoctors);
-      
+
       // Doctor phone validation from Doctor.java: "^[0-9]{8}$" (8 digits)
       if (formData.telephone && formData.telephone.length !== 8) {
-        alert("Le numéro de téléphone du médecin doit contenir 8 chiffres.");
+        Swal.fire({
+          icon: 'error',
+          title: 'Erreur',
+          text: "Le numéro de téléphone du médecin doit contenir 8 chiffres."
+        });
         return;
       }
-      
+
     } else if (modalType === 'appointment') {
       url = `${API_BASE_URL}/appointments${isEditing ? '/' + editingItem.id : ''}`;
       method = isEditing ? 'PUT' : 'POST';
-      
+
       // Adjust keys for backend: heure (time string) -> LocalTime, date (date string) -> LocalDate
       // The backend expects patientId and doctorId as Longs, but they come from <select> as strings, so we ensure they are numbers.
       const appointmentData = {
@@ -105,7 +114,7 @@ const HospitalManagement = () => {
         patientId: parseInt(formData.patientId),
         doctorId: parseInt(formData.doctorId),
       };
-      
+
       body = JSON.stringify(appointmentData);
       refreshData = () => fetchData('appointments', setAppointments);
     } else {
@@ -129,19 +138,34 @@ const HospitalManagement = () => {
       refreshData();
       closeModal();
     } catch (e) {
-      alert(`Erreur: ${e.message}. Veuillez vérifier les données du formulaire et le statut du backend.`);
+      Swal.fire({
+        icon: 'error',
+        title: 'Erreur',
+        text: `Erreur: ${e.message}. Veuillez vérifier les données du formulaire et le statut du backend.`
+      });
       console.error(e);
     }
   };
 
   // 3. Delete Operation
   const handleDelete = async (type, id) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cet élément ?')) {
+    const result = await Swal.fire({
+      title: 'Êtes-vous sûr ?',
+      text: "Vous ne pourrez pas revenir en arrière !",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Oui, supprimer !',
+      cancelButtonText: 'Annuler'
+    });
+
+    if (!result.isConfirmed) {
       return;
     }
 
     let url;
-    let refreshData = () => {};
+    let refreshData = () => { };
 
     if (type === 'patient') {
       url = `${API_BASE_URL}/patients/${id}`;
@@ -165,7 +189,11 @@ const HospitalManagement = () => {
 
       refreshData();
     } catch (e) {
-      alert(`Erreur de suppression: ${e.message}`);
+      Swal.fire({
+        icon: 'error',
+        title: 'Erreur',
+        text: `Erreur de suppression: ${e.message}`
+      });
       console.error(e);
     }
   };
@@ -184,16 +212,16 @@ const HospitalManagement = () => {
 
   // --- Filtering (Keep original logic, now filtering fetched data) ---
 
-  const filteredPatients = patients.filter(p => 
-    p.nom.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const filteredPatients = patients.filter(p =>
+    p.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.prenom.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredDoctors = doctors.filter(d => 
-    d.nom.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const filteredDoctors = doctors.filter(d =>
+    d.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
     d.specialite.toLowerCase().includes(searchTerm.toLowerCase())
   );
-  
+
   // No filtering for appointments in the original code, so we keep the appointments array directly.
   const filteredAppointments = appointments.filter(a => {
     const patientName = getPatientName(a.patientId).toLowerCase();
@@ -206,9 +234,9 @@ const HospitalManagement = () => {
       a.date.includes(term)
     );
   });
-  
+
   // --- Rendering ---
-  
+
   // Render loading/error state
   if (loading && patients.length === 0 && doctors.length === 0 && appointments.length === 0) {
     return <div className="min-h-screen flex items-center justify-center text-xl text-blue-600">Chargement des données...</div>;
@@ -220,8 +248,8 @@ const HospitalManagement = () => {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-6 shadow-lg">
+    <div className="min-h-screen bg-transparent">
+      <div className="bg-white/10 backdrop-blur-md border-b border-white/20 text-white p-6 shadow-lg">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-3xl font-bold flex items-center gap-3">
             <Activity className="w-8 h-8" />
@@ -232,38 +260,35 @@ const HospitalManagement = () => {
       </div>
 
       <div className="max-w-7xl mx-auto p-6">
-        <div className="bg-white rounded-lg shadow-lg mb-6">
+        <div className="bg-white/80 backdrop-blur-md rounded-lg shadow-lg mb-6 border border-white/20">
           {/* Tab buttons */}
           <div className="flex border-b">
             <button
               onClick={() => { setActiveTab('patients'); setSearchTerm(''); }}
-              className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors ${
-                activeTab === 'patients' 
-                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50' 
-                  : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
-              }`}
+              className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors ${activeTab === 'patients'
+                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                }`}
             >
               <Users className="w-5 h-5" />
               Patients
             </button>
             <button
               onClick={() => { setActiveTab('doctors'); setSearchTerm(''); }}
-              className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors ${
-                activeTab === 'doctors' 
-                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50' 
-                  : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
-              }`}
+              className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors ${activeTab === 'doctors'
+                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                }`}
             >
               <FileText className="w-5 h-5" />
               Médecins
             </button>
             <button
               onClick={() => { setActiveTab('appointments'); setSearchTerm(''); }}
-              className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors ${
-                activeTab === 'appointments' 
-                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50' 
-                  : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
-              }`}
+              className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors ${activeTab === 'appointments'
+                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                }`}
             >
               <Calendar className="w-5 h-5" />
               Rendez-vous
@@ -412,11 +437,10 @@ const HospitalManagement = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{appointment.date}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{appointment.heure}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              appointment.statut === 'Confirmé' ? 'bg-green-100 text-green-800' : 
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${appointment.statut === 'Confirmé' ? 'bg-green-100 text-green-800' :
                               appointment.statut === 'Annulé' ? 'bg-red-100 text-red-800' :
-                              'bg-yellow-100 text-yellow-800'
-                            }`}>
+                                'bg-yellow-100 text-yellow-800'
+                              }`}>
                               {appointment.statut}
                             </span>
                           </td>
